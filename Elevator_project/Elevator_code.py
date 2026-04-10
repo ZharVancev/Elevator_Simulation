@@ -42,6 +42,7 @@ def el_life():
             log_queue.put(f"The elevator is on floor {elevator_floor}\n")
             elevator_direction = "is not moving"
             stop = True
+            time.sleep(1)
             continue
         if elevator_path:
             if elevator_floor in elevator_path:
