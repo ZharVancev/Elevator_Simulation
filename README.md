@@ -14,6 +14,7 @@
 
 Запуск на Linux Ubuntu:
 1. Установите библиотеку командой:
+   
 	sudo apt-get update
 
 	sudo apt-get install python3-tk
