@@ -7,7 +7,7 @@ MOVE_TIME = 1
 BOARDING_TIME = 1
 
 
-def smart_list(direction, f_floor, targets):
+def prioritize_floors(direction, floor, targets):   #Выбирает главную цель для лифта и ставит ее в начало списка 
     if not targets:
         return []
     targets = list(set(targets))
@@ -20,11 +20,11 @@ def smart_list(direction, f_floor, targets):
     elif direction == "is going down":
         min_v = min(targets)
         targets.remove(min_v)
-        targets.insert(0, min_v)
+        targets.insert(0, min_v)  
     elif direction == "is not moving":
         for i in targets:
-            if min_distance is None or abs(i - f_floor) <= min_distance:
-                min_distance = abs(i - f_floor)
+            if min_distance is None or abs(i - floor) <= min_distance:
+                min_distance = abs(i - floor)
                 nearest = i
         if nearest:
             targets.remove(nearest)
@@ -32,41 +32,41 @@ def smart_list(direction, f_floor, targets):
     return targets
 
 
-def el_life():
-    global elevator_floor
+def run_elevator():                #отвечает за жизь лифта. Его движение, открытие дверей. Выводит состояние лифта в данный момент 
+    global current_floor
     global elevator_direction
-    global elevator_path
-    global stop
+    global target_floors
+    global is_waiting
     while True:
-        if not elevator_path and not stop:
-            log_queue.put(f"The elevator is on floor {elevator_floor}\n")
+        if not target_floors and not is_waiting:
+            log_queue.put(f"The elevator is on floor {current_floor}\n")
             elevator_direction = "is not moving"
-            stop = True
+            is_waiting = True
             time.sleep(1)
             continue
-        if elevator_path:
-            if elevator_floor in elevator_path:
-                log_queue.put(f"{elevator_floor} Stopped. Doors opened\n")
-                elevator_path.remove(elevator_floor)
+        if target_floors:
+            if current_floor in target_floors:
+                log_queue.put(f"{current_floor} floor. Stop. Doors opened\n")
+                target_floors.remove(current_floor)
                 time.sleep(BOARDING_TIME)
                 continue
-            elif elevator_floor < elevator_path[0]:
-                elevator_floor += 1
-                log_queue.put(f"the elevator goes up to floor:{elevator_floor}\n")
+            elif current_floor < target_floors[0]:
+                current_floor += 1
+                log_queue.put(f"the elevator goes up to floor:{current_floor}\n")
                 elevator_direction = "goes up"
-                stop = False
-            elif elevator_floor > elevator_path[0]:
-                elevator_floor -= 1
+                is_waiting = False
+            elif current_floor > target_floors[0]:
+                current_floor -= 1
                 elevator_direction = "is going down"
-                log_queue.put(f"The elevator goes down to floor:{elevator_floor}\n")
-                stop = False
+                log_queue.put(f"The elevator goes down to floor:{current_floor}\n")
+                is_waiting = False
             time.sleep(MOVE_TIME)
 
 
-def new_values():
-    global elevator_path
+def add_floors():         #функция отвечающая за принятие новыых этажей. Выводит этажи на которые был вызван лифт и ошибки ввода
+    global target_floors
     try:
-        new_floors = [x for x in entered.get().split()]
+        new_floors = [x for x in floor_entry.get().split()]
         if new_floors:
             new_floors = [int(x) for x in new_floors]
             if max(new_floors) > max_floor or min(new_floors) <= 0:
@@ -75,39 +75,39 @@ def new_values():
             new_floors = [int(x) for x in new_floors if 0 < int(x) <= max_floor]
             if new_floors:
                 text_elevator.insert(tk.END, f"the elevator is called to floors {str(new_floors)[1:-1]}\n")
-                label_1.config(text="enter the floors separated by a space")
-                label_2.config(text="")
-                elevator_path = smart_list(elevator_direction, elevator_floor, elevator_path + new_floors)
-        entered.delete(0, tk.END)
+                instruction_lbl.config(text="enter the floors separated by a space")
+                error_lbl.config(text="")
+                target_floors = prioritize_floors(elevator_direction, current_floor, target_floors + new_floors)
+        floor_entry.delete(0, tk.END)
     except ValueError:
-        label_2.config(text="You entered a bad number, please try again")
-        entered.delete(0, tk.END)
+        error_lbl.config(text="You floor_entry a bad number, please try again")
+        floor_entry.delete(0, tk.END)
 
 
-def max_f():
+def max_f():    #отвечает за ввод максимального этажа
     global max_floor
     try:
-        value = int(entered.get())
+        value = int(floor_entry.get())
         if value == 1:
-            label_1.config(text="Why do you need an elevator in a one-story building?")
-            entered.delete(0, tk.END)
+            instruction_lbl.config(text="Why do you need an elevator in a one-story building?")
+            floor_entry.delete(0, tk.END)
         elif value <= 0:
-            label_1.config(text="enter a number greater than zero")
-            entered.delete(0, tk.END)
+            instruction_lbl.config(text="enter a number greater than zero")
+            floor_entry.delete(0, tk.END)
         else:
             max_floor = value
-            label_1.config(text="enter the floors separated by a space")
-            label_2.config(text="")
-            button.config(command=new_values)
-            entered.delete(0, tk.END)
-            (threading.Thread(target=el_life, daemon=True)).start()
+            instruction_lbl.config(text="enter the floors separated by a space")
+            error_lbl.config(text="")
+            button.config(command=add_floors)
+            floor_entry.delete(0, tk.END)
+            (threading.Thread(target=run_elevator, daemon=True)).start()
             text_elevator.insert(tk.END, f"maximum floor {max_floor}\n")
     except ValueError:
-        label_2.config(text="an invalid number was entered, enter the maximum floor agin ")
-        entered.delete(0, tk.END)
+        error_lbl.config(text="an invalid number was floor_entry, enter the maximum floor agin ")
+        floor_entry.delete(0, tk.END)
 
 
-def update_gui_from_queue():
+def update_gui_from_queue():          #очередь для синхронизации потоков. Берет значение из очерери и выводит их
     try:
         while True:
             log = log_queue.get_nowait()
@@ -139,21 +139,21 @@ scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 text_elevator.config(yscrollcommand=scrollbar.set)
 
 
-label_1 = tk.Label(left_frame, text="Enter the maximum floor", wraplength=140)
-label_1.pack(pady=10)
+instruction_lbl = tk.Label(left_frame, text="Enter the maximum floor", wraplength=140)
+instruction_lbl.pack(pady=10)
 
-entered = tk.Entry(left_frame)
-entered.pack(pady=5)
+floor_entry = tk.Entry(left_frame)
+floor_entry.pack(pady=5)
 
 button = tk.Button(left_frame, command=max_f, text="send")
 button.pack(pady=10)
 
-label_2 = tk.Label(left_frame, text="", wraplength=140)
-label_2.pack(pady=10)
+error_lbl = tk.Label(left_frame, text="", wraplength=140)
+error_lbl.pack(pady=10)
 
-entered.bind("<Return>", lambda event: button.invoke())
+floor_entry.bind("<Return>", lambda event: button.invoke())
 
-elevator_floor, elevator_path, elevator_direction, max_floor, stop = 1, [], "is not moving", 0, False
+current_floor, target_floors, elevator_direction, max_floor, is_waiting = 1, [], "is not moving", 0, False
 
 
 update_gui_from_queue()
