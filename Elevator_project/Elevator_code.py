@@ -80,7 +80,7 @@ def add_floors():         #функция отвечающая за принят
                 target_floors = prioritize_floors(elevator_direction, current_floor, target_floors + new_floors)
         floor_entry.delete(0, tk.END)
     except ValueError:
-        error_lbl.config(text="You floor_entry a bad number, please try again")
+        error_lbl.config(text="You floor entry a bad number, please try again")
         floor_entry.delete(0, tk.END)
 
 
